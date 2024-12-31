@@ -1,34 +1,89 @@
 import os
 import pandas as pd
+import numpy as np
 import geopandas as gpd
 import streamlit as st
 import plotly.express as px
+import folium
+from streamlit_folium import st_folium
 
-# 1. Caminho do arquivo
-base_dir = os.path.dirname(os.path.abspath(__file__))
-path = os.path.join(base_dir, 'artifacts', 'shp', 'br_gdf.shp')
 
-# 2. Carregar os dados
-print('Carregando dados...')
-df = gpd.read_file(path)
+@st.cache_data
+def load_data(file_path):
+    """Load data from a CSV file."""
+    print('Carregando dados...')
+    return pd.read_csv(file_path, encoding='utf-8')
 
-# 2. Configurar o título do dashboard
-st.title("Dashboard de Setores Censitários")
 
-# 3. Filtros interativos
-regiao = st.selectbox("Selecione uma Cidade:", df['NM_MUNIC'].unique())
-filtro_df = df[df['NM_MUNIC'] == regiao]
+@st.cache_data
+def load_geodata(file_path):
+    """Load geodata from a parquet file."""
+    print('Carregando geodados...')
+    return gpd.read_parquet(file_path)
 
-# 4. Criar gráficos
-fig = px.bar(filtro_df, x='Cod_setor', y='populacao',
-             title=f"População por Setor em {regiao}")
-st.plotly_chart(fig)
 
-fig2 = px.scatter(filtro_df, x='densidade',
-                  y='renda_dom',
-                  title=f"Renda x Densidade em {regiao}")
-st.plotly_chart(fig2)
+def main():
+    """Criação de dashboard que filtra pelos municípios do Brasil os setores 
+    censitários com renda domiciliar e densidade populacional conforme 
+    desejado."""
+    # 1. Define the file path
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(base_dir, 'artifacts', 'br_data.csv')
 
-# 5. Resumo
-st.write("Resumo dos dados filtrados:")
-st.dataframe(filtro_df)
+    # 2. Load the data
+    df = load_data(path)
+    df['Cod_setor'] = df['Cod_setor'].astype(str)
+
+    # 2. Load the geodata
+    geodata_path = os.path.join(base_dir, 'artifacts', 'br_geo_gdf.parquet')
+    geodata = load_geodata(geodata_path)
+    geodata['Cod_setor'] = geodata['Cod_setor'].astype(str)
+
+    # 3. Set the dashboard title
+    st.title("Dashboard de Setores Censitários")
+
+    # 4. Interactive filters
+    regiao = st.multiselect("Selecione as cidades:",
+                            df['Nome_do_municipio'].unique(), default="SÃO PAULO")
+    renda_min = st.number_input('Renda mínima',
+                                min_value=df['renda_dom'].min(),
+                                max_value=df['renda_dom'].max(),
+                                value=4500.0)
+    densidade_min = st.number_input('Densidade mínima',
+                                    min_value=df['densidade'].min(),
+                                    max_value=df['densidade'].max(),
+                                    value=150.0)
+    filtro_df = df[(df['Nome_do_municipio'].isin(regiao)) &
+                   (df['renda_dom'] >= renda_min) &
+                   (df['densidade'] >= densidade_min)]
+    filtro_df = pd.merge(filtro_df, geodata, on='Cod_setor')
+
+    # 5. Create map
+    setores_gdf = gpd.GeoDataFrame(filtro_df, geometry='geometry')
+
+    map = folium.Map(location=[-23.5633, -46.66744],
+                     tiles='Cartodb Positron',
+                     zoom_start=10)
+    borders_style = {
+        'color': 'green',
+        'weight': 0,
+        'fillColor': 'green',
+        'fillOpacity': 0.3,
+    }
+    setores = folium.GeoJson(data=setores_gdf,
+                             style_function=lambda x: borders_style,
+                             )
+    setores.add_to(map)
+
+    out = st_folium(map, width=1280, height=720, returned_objects=[])
+
+    # 6. Create scatter plot
+    regiao_list = ', '.join(regiao[:-1]) + ' e ' + regiao[-1]\
+        if len(regiao) > 1 else ', '.join(regiao)
+    fig1 = px.scatter(filtro_df, x='densidade', y='renda_dom',
+                      title=f"Renda x Densidade em {regiao_list}")
+    st.plotly_chart(fig1)
+
+
+if __name__ == "__main__":
+    main()
