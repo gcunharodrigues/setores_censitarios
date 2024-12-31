@@ -43,16 +43,16 @@ def main():
     st.title("Dashboard de Setores Censitários")
 
     # 4. Interactive filters
-    regiao = st.multiselect("Selecione as cidades:",
-                            df['Nome_do_municipio'].unique(), default="SÃO PAULO")
-    renda_min = st.number_input('Renda mínima',
-                                min_value=df['renda_dom'].min(),
-                                max_value=df['renda_dom'].max(),
-                                value=4500.0)
-    densidade_min = st.number_input('Densidade mínima',
-                                    min_value=df['densidade'].min(),
-                                    max_value=df['densidade'].max(),
-                                    value=150.0)
+    regiao = st.sidebar.multiselect("Selecione as cidades:",
+                                    df['Nome_do_municipio'].unique(), default="SÃO PAULO")
+    renda_min = st.sidebar.number_input('Renda mínima',
+                                        min_value=df['renda_dom'].min(),
+                                        max_value=df['renda_dom'].max(),
+                                        value=4500.0)
+    densidade_min = st.sidebar.number_input('Densidade mínima',
+                                            min_value=df['densidade'].min(),
+                                            max_value=df['densidade'].max(),
+                                            value=150.0)
     filtro_df = df[(df['Nome_do_municipio'].isin(regiao)) &
                    (df['renda_dom'] >= renda_min) &
                    (df['densidade'] >= densidade_min)]
