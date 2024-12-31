@@ -41,6 +41,8 @@ def main():
 
     # 3. Set the dashboard title
     st.title("Dashboard de Setores Censitários")
+    st.sidebar.title("Escolha os filtros:")
+    st.write("")
 
     # 4. Interactive filters
     regiao = st.sidebar.multiselect("Selecione as cidades:",
