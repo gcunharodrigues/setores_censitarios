@@ -6,6 +6,7 @@ import streamlit as st
 import plotly.express as px
 import folium
 from streamlit_folium import st_folium
+from get_lat_long import get_lat_long
 
 
 @st.cache_data
@@ -40,13 +41,15 @@ def main():
     geodata['Cod_setor'] = geodata['Cod_setor'].astype(str)
 
     # 3. Set the dashboard title
-    st.title("Dashboard de Setores Censitários")
+    with st.container():
+        st.sidebar.title("Setores Censitários")
+
     st.sidebar.title("Escolha os filtros:")
-    st.write("")
 
     # 4. Interactive filters
+    cidades = df['Nome_do_municipio'].unique()
     regiao = st.sidebar.multiselect("Selecione as cidades:",
-                                    df['Nome_do_municipio'].unique(), default="SÃO PAULO")
+                                    np.sort(cidades), default="SÃO PAULO")
     renda_min = st.sidebar.number_input('Renda mínima',
                                         min_value=df['renda_dom'].min(),
                                         max_value=df['renda_dom'].max(),
@@ -63,9 +66,12 @@ def main():
     # 5. Create map
     setores_gdf = gpd.GeoDataFrame(filtro_df, geometry='geometry')
 
-    map = folium.Map(location=[-23.5633, -46.66744],
+    location = get_lat_long(regiao[0] + ', Brasil')
+
+    map = folium.Map(location=location,
                      tiles='Cartodb Positron',
-                     zoom_start=10)
+                     zoom_start=12)
+
     borders_style = {
         'color': 'green',
         'weight': 0,
@@ -77,14 +83,14 @@ def main():
                              )
     setores.add_to(map)
 
-    out = st_folium(map, width=1280, height=720, returned_objects=[])
+    out = st_folium(map, width=700, returned_objects=[])
 
-    # 6. Create scatter plot
-    regiao_list = ', '.join(regiao[:-1]) + ' e ' + regiao[-1]\
-        if len(regiao) > 1 else ', '.join(regiao)
-    fig1 = px.scatter(filtro_df, x='densidade', y='renda_dom',
-                      title=f"Renda x Densidade em {regiao_list}")
-    st.plotly_chart(fig1)
+    # # 6. Create scatter plot
+    # regiao_list = ', '.join(regiao[:-1]) + ' e ' + regiao[-1]\
+    #     if len(regiao) > 1 else ', '.join(regiao)
+    # fig1 = px.scatter(filtro_df, x='densidade', y='renda_dom',
+    #                   title=f"Renda x Densidade em {regiao_list}")
+    # st.plotly_chart(fig1)
 
 
 if __name__ == "__main__":
